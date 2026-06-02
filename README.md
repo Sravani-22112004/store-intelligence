@@ -10,73 +10,57 @@ An end-to-end pipeline from raw CCTV footage to live retail analytics.
 ## Quick Start (5 commands)
 
 ```bash
-# 1. Clone and enter the repo
-git clone <your-repo-url> store-intelligence && cd store-intelligence
+# 1. Clone the repo
+git clone https://github.com/Sravani-22112004/store-intelligence.git
+cd store-intelligence
 
-# 2. Place dataset files
-#    Copy your clips directory and store_layout.json into data/
-mkdir -p data/clips
-cp /path/to/store_layout.json data/
-cp /path/to/pos_transactions.csv data/
+# 2. Place the CCTV clips and POS data into data/
+mkdir -p "data/clips/CCTV Footage"
+# Copy your CAM_1.mp4 ... CAM_5.mp4 into data/clips/CCTV Footage/
+# Copy your pos_transactions.csv into data/
 
-# 3. Start the API and database
+# 3. Start the API + database + dashboard
 docker compose up -d
 
-# 4. Verify the API is running
+# 4. Verify the API is live
 curl http://localhost:8000/health
 
 # 5. Open the live dashboard
 open http://localhost:3000
 ```
 
-The API is now live at **http://localhost:8000** and the dashboard at **http://localhost:3000**.
+API: **http://localhost:8000**
+Dashboard: **http://localhost:3000**
+API Docs: **http://localhost:8000/docs**
 
 ---
 
 ## Running the Detection Pipeline
 
-### Install pipeline dependencies
-
 ```bash
+# Install dependencies
 cd pipeline
 pip install -r requirements.txt
-```
 
-> YOLOv8 weights (`yolov8n.pt`) are downloaded automatically on first run (~6MB).
-
-### Process a single clip
-
-```bash
-python detect.py \
-  --video ../data/clips/STORE_BLR_002__CAM_ENTRY_01.mp4 \
+# Load POS transactions into the database
+python3 load_pos.py \
+  --csv ../data/pos_transactions.csv \
   --store-id STORE_BLR_002 \
-  --camera-id CAM_ENTRY_01 \
+  --db-url postgresql://store:store123@localhost:5432/storedb
+
+# Process a single clip (streams events to API in real time)
+python3 detect.py \
+  --video "../data/clips/CCTV Footage/CAM_1.mp4" \
+  --store-id STORE_BLR_002 \
+  --camera-id CAM_1 \
   --layout ../data/store_layout.json \
-  --output ../data/events/STORE_BLR_002_CAM_ENTRY_01.jsonl \
+  --output ../data/events/CAM_1.jsonl \
   --api-url http://localhost:8000 \
-  --clip-start 2026-03-03T14:00:00
-```
+  --clip-start 2026-04-10T10:00:00
 
-Events are written to the `.jsonl` file **and** streamed to the API in real time.
-
-### Process all clips at once
-
-```bash
-cd pipeline
+# Process all 5 clips at once
 chmod +x run.sh
-./run.sh ../data/clips ../data/store_layout.json http://localhost:8000
-```
-
-The script auto-detects `store_id` and `camera_id` from the filename.
-Expected filename format: `STORE_BLR_002__CAM_ENTRY_01__2026-03-03T14-00-00.mp4`
-
-### Replay events from a saved `.jsonl` file
-
-```bash
-# If you already have events and just want to feed them into the API:
-python replay.py --events ../data/events/STORE_BLR_002_CAM_ENTRY_01.jsonl \
-                 --api-url http://localhost:8000 \
-                 --speed 10   # 10x faster than real time
+./run.sh "../data/clips/CCTV Footage" ../data/store_layout.json http://localhost:8000
 ```
 
 ---
@@ -88,36 +72,16 @@ python replay.py --events ../data/events/STORE_BLR_002_CAM_ENTRY_01.jsonl \
 | `POST` | `/events/ingest` | Ingest batch of up to 500 events (idempotent) |
 | `GET` | `/stores/{id}/metrics` | Real-time KPIs: visitors, conversion, dwell, queue |
 | `GET` | `/stores/{id}/funnel` | Conversion funnel with drop-off percentages |
-| `GET` | `/stores/{id}/heatmap` | Zone visit frequency, normalised 0–100 |
+| `GET` | `/stores/{id}/heatmap` | Zone visit frequency normalised 0–100 |
 | `GET` | `/stores/{id}/anomalies` | Active anomalies with severity and suggested actions |
 | `GET` | `/health` | Service status + per-store feed lag |
 
-### Example: ingest an event
-
-```bash
-curl -X POST http://localhost:8000/events/ingest \
-  -H "Content-Type: application/json" \
-  -d '{
-    "events": [{
-      "event_id": "550e8400-e29b-41d4-a716-446655440000",
-      "store_id": "STORE_BLR_002",
-      "camera_id": "CAM_ENTRY_01",
-      "visitor_id": "VIS_c8a2f1",
-      "event_type": "ENTRY",
-      "timestamp": "2026-03-03T14:22:10Z",
-      "zone_id": null,
-      "dwell_ms": 0,
-      "is_staff": false,
-      "confidence": 0.91,
-      "metadata": {"queue_depth": null, "sku_zone": null, "session_seq": 1}
-    }]
-  }'
-```
-
-### Example: get store metrics
-
+### Quick test
 ```bash
 curl http://localhost:8000/stores/STORE_BLR_002/metrics
+curl http://localhost:8000/stores/STORE_BLR_002/funnel
+curl http://localhost:8000/stores/STORE_BLR_002/heatmap
+curl http://localhost:8000/stores/STORE_BLR_002/anomalies
 ```
 
 ---
@@ -125,19 +89,11 @@ curl http://localhost:8000/stores/STORE_BLR_002/metrics
 ## Running Tests
 
 ```bash
-cd store-intelligence
-
-# Install test dependencies
-pip install -r app/requirements.txt
-
-# Run all tests with coverage
+pip install fastapi httpx pytest pytest-cov pytest-asyncio pydantic-settings sqlalchemy
 pytest tests/ -v --cov=app --cov-report=term-missing
-
-# Run specific test file
-pytest tests/test_metrics.py -v
-pytest tests/test_pipeline.py -v
-pytest tests/test_anomalies.py -v
 ```
+
+**Result: 38 passed, 88% coverage**
 
 ---
 
@@ -146,64 +102,66 @@ pytest tests/test_anomalies.py -v
 ```
 store-intelligence/
 ├── pipeline/
-│   ├── detect.py          # Main detection script (YOLOv8 + tracker)
-│   ├── tracker.py         # IoU+centroid tracker with re-entry detection
-│   ├── emit.py            # Event schema builder and JSONL writer
+│   ├── detect.py          # YOLOv8 + IoU tracker → structured events
+│   ├── tracker.py         # Re-entry detection, group handling
+│   ├── emit.py            # Event schema builder
+│   ├── load_pos.py        # Load POS CSV into database
 │   ├── replay.py          # Replay saved events to API
-│   ├── run.sh             # One-command: process all clips → events → API
-│   └── requirements.txt
+│   └── run.sh             # Process all clips in one command
 ├── app/
-│   ├── main.py            # FastAPI entrypoint, all routes
-│   ├── models.py          # Pydantic schemas (event + response models)
-│   ├── database.py        # SQLAlchemy ORM + connection management
-│   ├── ingestion.py       # Ingest, dedup, batch commit
+│   ├── main.py            # FastAPI entrypoint
+│   ├── models.py          # Pydantic event + response schemas
+│   ├── database.py        # SQLAlchemy ORM
+│   ├── ingestion.py       # Ingest + deduplication
 │   ├── metrics.py         # Real-time KPI computation
-│   ├── funnel.py          # Conversion funnel + session deduplication
-│   ├── heatmap.py         # Zone heatmap normalisation
+│   ├── funnel.py          # Conversion funnel + session dedup
+│   ├── heatmap.py         # Zone heatmap
 │   ├── anomalies.py       # Queue spike, conversion drop, dead zone
-│   ├── health.py          # Feed lag + service health
-│   ├── logging_config.py  # Structured JSON logging + request middleware
-│   ├── Dockerfile
-│   └── requirements.txt
+│   └── health.py          # Feed lag + service health
 ├── dashboard/
-│   ├── index.html         # Live dashboard (polling, no framework)
-│   └── Dockerfile
+│   └── index.html         # Live dashboard (polls every 5s)
 ├── tests/
-│   ├── test_metrics.py    # API ingestion + metrics tests
-│   ├── test_pipeline.py   # Tracker + event emitter unit tests
+│   ├── test_metrics.py    # API + ingestion tests
+│   ├── test_pipeline.py   # Tracker + emitter unit tests
 │   └── test_anomalies.py  # Anomaly detection tests
 ├── docs/
 │   ├── DESIGN.md          # Architecture + AI-assisted decisions
-│   └── CHOICES.md         # 3 engineering decisions with full reasoning
-├── data/                  # Place clips, layout JSON, POS CSV here (gitignored)
-├── docker-compose.yml
-└── README.md
+│   └── CHOICES.md         # 3 engineering decisions with reasoning
+├── data/
+│   └── store_layout.json  # Zone definitions for STORE_BLR_002
+└── docker-compose.yml
 ```
 
 ---
 
-## Live Dashboard
+## Architecture
 
-Open **http://localhost:3000** after `docker compose up`.
+```
+CCTV Clips → YOLOv8n Detection → IoU Tracker → EventEmitter
+                                                      ↓
+                                          POST /events/ingest
+                                                      ↓
+                                              PostgreSQL
+                                                      ↓
+                          /metrics  /funnel  /heatmap  /anomalies  /health
+                                                      ↓
+                                          Live Dashboard (port 3000)
+```
 
-The dashboard polls all API endpoints every 5 seconds and shows:
-- KPI cards (visitors, conversion rate, queue depth, abandonment rate)
-- Feed health per store (OK / STALE_FEED / NO_DATA)
-- Conversion funnel with animated bars
-- Zone heatmap with colour-coded scores
-- Active anomalies with severity badges (INFO / WARN / CRITICAL)
+**Detection:** YOLOv8n (person class) + custom IoU+centroid tracker. Re-entry detection via 5-minute lost-track buffer. Staff classified by uniform colour (HSV). Entry/exit by centroid crossing a threshold line.
+
+**API:** FastAPI + PostgreSQL. Real-time queries — no pre-aggregation. Session deduplication via distinct(visitor_id). POS correlation via 5-minute time window.
+
+**Dashboard:** Single HTML file, polls all endpoints every 5 seconds.
 
 ---
 
-## Architecture Decisions
+## Key Design Decisions
 
-See [`docs/DESIGN.md`](docs/DESIGN.md) for the full architecture overview and AI-assisted decision log.
-See [`docs/CHOICES.md`](docs/CHOICES.md) for the three major engineering trade-offs.
+See [`docs/DESIGN.md`](docs/DESIGN.md) and [`docs/CHOICES.md`](docs/CHOICES.md) for full reasoning.
 
----
-
-## Notes
-
-- Dataset files (clips, layout, POS CSV) are gitignored and must be placed in `data/` manually.
-- The pipeline can run against clips offline and replay events into the API, or stream events in real time.
-- SQLite is used for tests; PostgreSQL for the Docker deployment.
+- **YOLOv8n over YOLOv8m**: 3x faster on CPU, sufficient for 15fps footage
+- **Custom tracker over ByteTrack**: No `lap` dependency issues on ARM Mac
+- **PostgreSQL only, no Redis**: Correct for this scale; Redis documented as next step
+- **Confidence always emitted**: Never suppress — consumer decides threshold
+- **5-min re-entry window**: Tighter than AI suggested (10 min) to reduce false positives

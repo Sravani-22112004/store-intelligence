@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Store Intelligence — Live Dashboard</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: #0f0f1a; color: #e2e8f0; font-family: 'Segoe UI', sans-serif; min-height: 100vh; }
+
+  header {
+    background: linear-gradient(135deg, #1a0a2e, #16213e);
+    padding: 16px 24px;
+    display: flex; align-items: center; justify-content: space-between;
+    border-bottom: 1px solid #2d3748;
+  }
+  .logo { font-size: 1.4rem; font-weight: 700; color: #a855f7; letter-spacing: 1px; }
+  .live-badge {
+    display: flex; align-items: center; gap: 8px;
+    background: #1a2030; padding: 6px 14px; border-radius: 999px;
+    border: 1px solid #2d3748; font-size: 0.8rem;
+  }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: #22c55e; animation: pulse 1.5s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+  .store-selector { padding: 12px 24px; background: #13111f; border-bottom: 1px solid #1e1b2e; display: flex; gap: 10px; align-items: center; }
+  .store-selector label { color: #94a3b8; font-size: 0.85rem; }
+  .store-selector input {
+    background: #1e1b2e; border: 1px solid #2d3748; color: #e2e8f0;
+    padding: 6px 12px; border-radius: 6px; font-size: 0.9rem; width: 240px;
+  }
+  .btn {
+    background: #7c3aed; color: white; border: none; padding: 7px 16px;
+    border-radius: 6px; cursor: pointer; font-size: 0.85rem; transition: background 0.2s;
+  }
+  .btn:hover { background: #6d28d9; }
+
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; padding: 20px 24px; }
+
+  .card {
+    background: #1a1730; border: 1px solid #2d3748; border-radius: 12px;
+    padding: 20px; transition: border-color 0.3s;
+  }
+  .card:hover { border-color: #7c3aed; }
+  .card-label { font-size: 0.75rem; color: #64748b; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px; }
+  .card-value { font-size: 2rem; font-weight: 700; color: #a855f7; }
+  .card-sub { font-size: 0.8rem; color: #64748b; margin-top: 4px; }
+
+  .section { padding: 0 24px 24px; }
+  .section-title { font-size: 0.9rem; color: #94a3b8; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 12px; }
+
+  .funnel { display: flex; flex-direction: column; gap: 8px; }
+  .funnel-row { display: flex; align-items: center; gap: 12px; }
+  .funnel-label { width: 120px; font-size: 0.85rem; color: #94a3b8; }
+  .funnel-bar-wrap { flex: 1; background: #1e1b2e; border-radius: 4px; height: 28px; overflow: hidden; }
+  .funnel-bar { height: 100%; background: linear-gradient(90deg, #7c3aed, #a855f7); border-radius: 4px; transition: width 0.6s ease; display: flex; align-items: center; padding-left: 8px; font-size: 0.8rem; white-space: nowrap; min-width: 30px; }
+  .funnel-count { width: 60px; text-align: right; font-size: 0.9rem; font-weight: 600; }
+  .funnel-drop { width: 60px; text-align: right; font-size: 0.75rem; color: #ef4444; }
+
+  .heatmap-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 8px; }
+  .zone-card {
+    background: #1e1b2e; border-radius: 8px; padding: 12px; text-align: center;
+    border: 1px solid transparent; transition: all 0.3s;
+  }
+  .zone-name { font-size: 0.75rem; color: #94a3b8; margin-bottom: 6px; }
+  .zone-score { font-size: 1.4rem; font-weight: 700; }
+  .zone-dwell { font-size: 0.7rem; color: #64748b; margin-top: 4px; }
+
+  .anomaly-list { display: flex; flex-direction: column; gap: 8px; }
+  .anomaly {
+    background: #1e1b2e; border-radius: 8px; padding: 12px 16px;
+    border-left: 3px solid; display: flex; justify-content: space-between; align-items: flex-start;
+  }
+  .anomaly.INFO { border-color: #3b82f6; }
+  .anomaly.WARN { border-color: #f59e0b; }
+  .anomaly.CRITICAL { border-color: #ef4444; background: #1f1016; }
+  .anomaly-desc { font-size: 0.85rem; }
+  .anomaly-action { font-size: 0.75rem; color: #64748b; margin-top: 4px; }
+  .severity-badge {
+    font-size: 0.7rem; font-weight: 700; padding: 2px 8px; border-radius: 999px;
+    white-space: nowrap; margin-left: 12px;
+  }
+  .severity-badge.INFO { background: #1e3a5f; color: #60a5fa; }
+  .severity-badge.WARN { background: #451a03; color: #fbbf24; }
+  .severity-badge.CRITICAL { background: #450a0a; color: #f87171; }
+
+  .no-data { color: #4a5568; font-size: 0.85rem; padding: 16px; text-align: center; }
+  .last-updated { font-size: 0.75rem; color: #4a5568; padding: 0 24px 16px; }
+
+  .health-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; padding: 0 24px 20px; }
+  .health-chip {
+    font-size: 0.75rem; padding: 4px 10px; border-radius: 999px;
+    border: 1px solid;
+  }
+  .health-chip.OK { border-color: #166534; color: #4ade80; background: #0f2d1f; }
+  .health-chip.STALE_FEED { border-color: #854d0e; color: #fbbf24; background: #2d1f0a; }
+  .health-chip.NO_DATA { border-color: #374151; color: #6b7280; background: #111827; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">🏪 Store Intelligence</div>
+  <div class="live-badge">
+    <div class="dot"></div>
+    <span id="live-status">Connecting...</span>
+  </div>
+</header>
+
+<div class="store-selector">
+  <label>Store ID:</label>
+  <input type="text" id="store-input" value="STORE_BLR_002" placeholder="e.g. STORE_BLR_002">
+  <button class="btn" onclick="setStore()">Load</button>
+  <label style="margin-left:16px">API:</label>
+  <input type="text" id="api-input" value="http://localhost:8000" style="width:200px">
+</div>
+
+<div class="grid" id="kpi-grid">
+  <div class="card"><div class="card-label">Unique Visitors</div><div class="card-value" id="kpi-visitors">—</div><div class="card-sub">Today, customers only</div></div>
+  <div class="card"><div class="card-label">Conversion Rate</div><div class="card-value" id="kpi-conversion">—</div><div class="card-sub">Visitors who purchased</div></div>
+  <div class="card"><div class="card-label">Queue Depth</div><div class="card-value" id="kpi-queue">—</div><div class="card-sub">Billing counter now</div></div>
+  <div class="card"><div class="card-label">Abandonment Rate</div><div class="card-value" id="kpi-abandon">—</div><div class="card-sub">Left queue without buying</div></div>
+  <div class="card"><div class="card-label">Transactions</div><div class="card-value" id="kpi-txn">—</div><div class="card-sub">POS today</div></div>
+</div>
+
+<div class="health-row" id="health-row"></div>
+
+<div class="section">
+  <div class="section-title">Conversion Funnel</div>
+  <div class="funnel" id="funnel-container"><div class="no-data">Loading...</div></div>
+</div>
+
+<div class="section">
+  <div class="section-title">Zone Heatmap</div>
+  <div class="heatmap-grid" id="heatmap-container"><div class="no-data">Loading...</div></div>
+</div>
+
+<div class="section">
+  <div class="section-title">Active Anomalies</div>
+  <div class="anomaly-list" id="anomaly-container"><div class="no-data">Loading...</div></div>
+</div>
+
+<div class="last-updated" id="last-updated"></div>
+
+<script>
+let storeId = 'STORE_BLR_002';
+let apiBase = 'http://localhost:8000';
+let refreshInterval;
+
+function setStore() {
+  storeId = document.getElementById('store-input').value.trim();
+  apiBase = document.getElementById('api-input').value.trim().replace(/\/$/, '');
+  fetchAll();
+}
+
+async function fetchJson(url) {
+  const r = await fetch(url);
+  if (!r.ok) throw new Error(`${r.status}`);
+  return r.json();
+}
+
+function hueFromScore(score) {
+  const h = Math.round(score * 2.7); // 0→0 (red), 100→270 (purple)
+  return `hsl(${h}, 70%, 55%)`;
+}
+
+async function fetchAll() {
+  try {
+    const [metrics, funnel, heatmap, anomalies, health] = await Promise.all([
+      fetchJson(`${apiBase}/stores/${storeId}/metrics`),
+      fetchJson(`${apiBase}/stores/${storeId}/funnel`),
+      fetchJson(`${apiBase}/stores/${storeId}/heatmap`),
+      fetchJson(`${apiBase}/stores/${storeId}/anomalies`),
+      fetchJson(`${apiBase}/health`),
+    ]);
+
+    // KPIs
+    document.getElementById('kpi-visitors').textContent = metrics.unique_visitors;
+    document.getElementById('kpi-conversion').textContent = (metrics.conversion_rate * 100).toFixed(1) + '%';
+    document.getElementById('kpi-queue').textContent = metrics.queue_depth;
+    document.getElementById('kpi-abandon').textContent = (metrics.abandonment_rate * 100).toFixed(1) + '%';
+    document.getElementById('kpi-txn').textContent = metrics.total_transactions;
+
+    // Health chips
+    const healthRow = document.getElementById('health-row');
+    healthRow.innerHTML = '';
+    (health.stores || []).forEach(s => {
+      const chip = document.createElement('div');
+      chip.className = `health-chip ${s.feed_status}`;
+      chip.textContent = `${s.store_id}: ${s.feed_status}${s.lag_minutes ? ` (${s.lag_minutes}m lag)` : ''}`;
+      healthRow.appendChild(chip);
+    });
+
+    // Funnel
+    const funnelEl = document.getElementById('funnel-container');
+    funnelEl.innerHTML = '';
+    const maxCount = funnel.funnel[0]?.count || 1;
+    funnel.funnel.forEach(stage => {
+      const pct = maxCount > 0 ? (stage.count / maxCount * 100) : 0;
+      funnelEl.innerHTML += `
+        <div class="funnel-row">
+          <div class="funnel-label">${stage.stage}</div>
+          <div class="funnel-bar-wrap">
+            <div class="funnel-bar" style="width:${pct}%">${stage.count > 0 ? stage.count : ''}</div>
+          </div>
+          <div class="funnel-count">${stage.count}</div>
+          <div class="funnel-drop">${stage.drop_off_pct > 0 ? '-' + stage.drop_off_pct + '%' : ''}</div>
+        </div>`;
+    });
+
+    // Heatmap
+    const hmEl = document.getElementById('heatmap-container');
+    if (!heatmap.zones.length) {
+      hmEl.innerHTML = '<div class="no-data">No zone data yet</div>';
+    } else {
+      hmEl.innerHTML = heatmap.zones.map(z => `
+        <div class="zone-card" style="border-color: ${hueFromScore(z.normalized_score)}20">
+          <div class="zone-name">${z.zone_id}</div>
+          <div class="zone-score" style="color:${hueFromScore(z.normalized_score)}">${z.normalized_score.toFixed(0)}</div>
+          <div class="zone-dwell">${z.avg_dwell_seconds.toFixed(0)}s avg dwell</div>
+          <div class="zone-dwell">${z.visit_frequency} visits ${z.data_confidence ? '' : '⚠️ low data'}</div>
+        </div>`).join('');
+    }
+
+    // Anomalies
+    const anomEl = document.getElementById('anomaly-container');
+    if (!anomalies.anomalies.length) {
+      anomEl.innerHTML = '<div class="no-data">✅ No active anomalies</div>';
+    } else {
+      anomEl.innerHTML = anomalies.anomalies.map(a => `
+        <div class="anomaly ${a.severity}">
+          <div>
+            <div class="anomaly-desc">${a.description}</div>
+            <div class="anomaly-action">→ ${a.suggested_action}</div>
+          </div>
+          <span class="severity-badge ${a.severity}">${a.severity}</span>
+        </div>`).join('');
+    }
+
+    document.getElementById('live-status').textContent = 'Live';
+    document.getElementById('last-updated').textContent = `Last updated: ${new Date().toLocaleTimeString()}`;
+
+  } catch (err) {
+    document.getElementById('live-status').textContent = 'Disconnected';
+    document.getElementById('last-updated').textContent = `Error: ${err.message} — retrying...`;
+  }
+}
+
+function startRefresh(ms = 5000) {
+  clearInterval(refreshInterval);
+  fetchAll();
+  refreshInterval = setInterval(fetchAll, ms);
+}
+
+startRefresh(5000);
+</script>
+</body>
+</html>

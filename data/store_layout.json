@@ -1,0 +1,67 @@
+{
+  "stores": [
+    {
+      "store_id": "STORE_BLR_002",
+      "store_name": "Brigade Road Bangalore",
+      "city": "Bangalore",
+      "open_hours": "10:00-22:00",
+      "cameras": [
+        {
+          "camera_id": "CAM_1",
+          "type": "entry_exit",
+          "description": "Entry/Exit threshold camera",
+          "zones": [
+            { "zone_id": "ENTRY_ZONE", "bbox": [0, 0, 1920, 360] },
+            { "zone_id": "EXIT_ZONE",  "bbox": [0, 0, 1920, 360] }
+          ]
+        },
+        {
+          "camera_id": "CAM_2",
+          "type": "main_floor",
+          "description": "Main floor zone coverage",
+          "zones": [
+            { "zone_id": "SKINCARE",    "bbox": [0,    0,    640,  540] },
+            { "zone_id": "HAIRCARE",    "bbox": [640,  0,    1280, 540] },
+            { "zone_id": "MAKEUP",      "bbox": [1280, 0,    1920, 540] },
+            { "zone_id": "FRAGRANCE",   "bbox": [0,    540,  640,  1080] },
+            { "zone_id": "BODYCARE",    "bbox": [640,  540,  1280, 1080] },
+            { "zone_id": "ACCESSORIES", "bbox": [1280, 540,  1920, 1080] }
+          ]
+        },
+        {
+          "camera_id": "CAM_3",
+          "type": "main_floor",
+          "description": "Main floor zone coverage 2",
+          "zones": [
+            { "zone_id": "SKINCARE",    "bbox": [0,    0,    640,  540] },
+            { "zone_id": "HAIRCARE",    "bbox": [640,  0,    1280, 540] },
+            { "zone_id": "MAKEUP",      "bbox": [1280, 0,    1920, 540] },
+            { "zone_id": "FRAGRANCE",   "bbox": [0,    540,  640,  1080] },
+            { "zone_id": "BODYCARE",    "bbox": [640,  540,  1280, 1080] },
+            { "zone_id": "ACCESSORIES", "bbox": [1280, 540,  1920, 1080] }
+          ]
+        },
+        {
+          "camera_id": "CAM_4",
+          "type": "billing_area",
+          "description": "Billing counter area",
+          "zones": [
+            { "zone_id": "BILLING",         "bbox": [0,    0,    1280, 540] },
+            { "zone_id": "BILLING_COUNTER", "bbox": [0,    540,  960,  1080] },
+            { "zone_id": "QUEUE_AREA",      "bbox": [960,  540,  1920, 1080] }
+          ]
+        },
+        {
+          "camera_id": "CAM_5",
+          "type": "billing_area",
+          "description": "Billing counter area 2",
+          "zones": [
+            { "zone_id": "BILLING",         "bbox": [0,    0,    1280, 540] },
+            { "zone_id": "BILLING_COUNTER", "bbox": [0,    540,  960,  1080] },
+            { "zone_id": "QUEUE_AREA",      "bbox": [960,  540,  1920, 1080] }
+          ]
+        }
+      ]
+    }
+  ]
+}

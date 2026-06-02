@@ -1,0 +1,15 @@
+__pycache__/
+*.pyc
+*.pyo
+.env
+*.sqlite
+*.db
+pgdata/
+data/clips/
+data/events/
+data/*.mp4
+data/*.zip
+*.pt
+yolov8*.pt
+node_modules/
+.DS_Store
